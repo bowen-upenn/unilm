@@ -259,9 +259,7 @@ def main(args, ds_init):
     # )
     ############################################
 
-    ############################################
-    data_loader_train, data_loader_val = create_downstream_dataset(args, test_on_val1000=args.test_on_val1000)
-    ############################################
+    data_loader_train, data_loader_val = create_downstream_dataset(args)
 
     if not args.model.endswith(args.task):
         if args.task in ("flickr30k", "coco_retrieval"):
@@ -375,12 +373,7 @@ def main(args, ds_init):
                 label_smoothing=args.label_smoothing, num_classes=args.nb_classes)
 
     if args.eval:
-        ############################################
-        if args.test_on_val1000:
-            data_loader_test = data_loader_val # VQA-v2 val 1000 dataset
-        else:
-            data_loader_test = create_downstream_dataset(args, is_eval=True)
-        ############################################
+        data_loader_test = create_downstream_dataset(args, is_eval=True)
 
         if args.task in ["nlvr2", "flickr30k", "coco_retrieval", "imagenet"]:
             ext_test_stats, task_key = evaluate(data_loader_test, model, device, task_handler)

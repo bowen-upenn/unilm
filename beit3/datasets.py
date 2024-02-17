@@ -25,7 +25,7 @@ from randaug import RandomAugment
 class BaseDataset(torch.utils.data.Dataset):
     def __init__(
         self, data_path, split, transform, 
-        tokenizer, num_max_bpe_tokens, task=None,
+        tokenizer, num_max_bpe_tokens, task=None, test_on_val1000=False
     ):
         index_files = self.get_index_files(split, task=task)
         self.tokenizer = tokenizer
@@ -369,6 +369,8 @@ class VQAv2Dataset(BaseDataset):
         self.ans2label = ans2label
         self.label2ans = label2ans
 
+        self.test_on_val1000 = kwargs.get("test_on_val1000", False)
+
     @staticmethod
     def get_index_files(split, task=None):
         if split == "train":
@@ -376,7 +378,10 @@ class VQAv2Dataset(BaseDataset):
         elif split == "val":
             return ("vqa.rest_val.jsonl", )
         elif split == "test":
-            return ("vqa.test.jsonl", )
+            if self.test_on_val1000:
+                return ("vqa.rest_val.jsonl",)
+            else:
+                return ("vqa.test.jsonl", )
         elif split == "test-dev":
             return ("vqa.test-dev.jsonl", )
         else:
@@ -389,6 +394,9 @@ class VQAv2Dataset(BaseDataset):
             for l, s in zip(self.items[index]["labels"], self.items[index]["scores"]):
                 labels[l] = s
             data["labels"] = torch.FloatTensor(labels)
+            ######################################
+            data["qid"] = self.items[index]["qid"]
+            ######################################
         else:
             data["qid"] = self.items[index]["qid"]
         return data
@@ -818,6 +826,10 @@ def create_dataset_by_split(args, split, is_train=True):
     opt_kwargs = {}
     if args.task in ["coco_captioning", "nocaps"]:
         opt_kwargs["mask_prob"] = args.captioning_mask_prob
+    ########################################################
+    if args.task in ["vqav2"]:
+        opt_kwargs["test_on_val1000"] = args.test_on_val1000
+    ########################################################
 
     dataset = dataset_class(
         data_path=args.data_path, split=split, 
@@ -838,14 +850,7 @@ def create_dataset_by_split(args, split, is_train=True):
     )
 
 
-def create_downstream_dataset(args, is_eval=False, test_on_val1000=False):
-    ######################################################################
-    if test_on_val1000:
-        return \
-            create_dataset_by_split(args, split="train", is_train=True), \
-            create_dataset_by_split(args, split="val", is_train=False)
-    ######################################################################
-
+def create_downstream_dataset(args, is_eval=False):
     if is_eval:
         return create_dataset_by_split(args, split="test", is_train=False)
     else:
