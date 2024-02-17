@@ -28,6 +28,9 @@ from utils import NativeScalerWithGradNormCount as NativeScaler
 import utils
 import modeling_finetune
 
+from datasets import VQAv2Dataset
+from transformers import XLMRobertaTokenizer
+
 
 def get_args():
     parser = argparse.ArgumentParser('BEiT fine-tuning and evaluation script for image classification', add_help=False)
@@ -38,6 +41,8 @@ def get_args():
     parser.add_argument('--task', type=str, required=True, 
                         choices=['nlvr2', 'vqav2', 'flickr30k', 'coco_retrieval', 'coco_captioning', 'nocaps', 'imagenet'], 
                         help='Name of task to fine-tuning')
+
+    parser.add_argument('--test_on_val1000', action='store_true', default=False, help='Test on val1000 dataset')
 
     parser.add_argument('--input_size', default=224, type=int,
                         help='images input size')
@@ -136,7 +141,9 @@ def get_args():
     # distributed training parameters
     parser.add_argument('--world_size', default=1, type=int,
                         help='number of distributed processes')
-    parser.add_argument('--local_rank', default=-1, type=int)
+
+    parser.add_argument('--local-rank', default=-1, type=int)
+
     parser.add_argument('--dist_on_itp', action='store_true')
     parser.add_argument('--dist_url', default='env://',
                         help='url used to set up distributed training')
@@ -241,7 +248,20 @@ def main(args, ds_init):
     else:
         log_writer = None
 
-    data_loader_train, data_loader_val = create_downstream_dataset(args)
+    ############################################
+    # Only run the following code block once to create the dataset index
+    # tokenizer = XLMRobertaTokenizer('beit3.spm')
+    #
+    # VQAv2Dataset.make_dataset_index(
+    #     data_path=args.data_path,
+    #     tokenizer=tokenizer,
+    #     annotation_data_path=args.data_path + '/vqa',
+    # )
+    ############################################
+
+    ############################################
+    data_loader_train, data_loader_val = create_downstream_dataset(args, test_on_val1000=args.test_on_val1000)
+    ############################################
 
     if not args.model.endswith(args.task):
         if args.task in ("flickr30k", "coco_retrieval"):
@@ -281,7 +301,7 @@ def main(args, ds_init):
     model_without_ddp = model
     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
 
-    print("Model = %s" % str(model_without_ddp))
+    # print("Model = %s" % str(model_without_ddp))
     print('number of params:', n_parameters)
 
     total_batch_size = args.batch_size * args.update_freq * utils.get_world_size()
@@ -301,8 +321,8 @@ def main(args, ds_init):
     else:
         assigner = None
 
-    if assigner is not None:
-        print("Assigned values = %s" % str(assigner.values))
+    # if assigner is not None:
+    #     print("Assigned values = %s" % str(assigner.values))
 
     skip_weight_decay_list = model.no_weight_decay()
 
@@ -355,14 +375,25 @@ def main(args, ds_init):
                 label_smoothing=args.label_smoothing, num_classes=args.nb_classes)
 
     if args.eval:
-        data_loader_test = create_downstream_dataset(args, is_eval=True)
+        ############################################
+        if args.test_on_val1000:
+            data_loader_test = data_loader_val # VQA-v2 val 1000 dataset
+        else:
+            data_loader_test = create_downstream_dataset(args, is_eval=True)
+        ############################################
+
         if args.task in ["nlvr2", "flickr30k", "coco_retrieval", "imagenet"]:
             ext_test_stats, task_key = evaluate(data_loader_test, model, device, task_handler)
             print(f"Accuracy of the network on the {len(data_loader_test.dataset)} test images: {ext_test_stats[task_key]:.3f}%")
             exit(0)
         elif args.task == "vqav2":
-            result, _ = evaluate(data_loader_test, model, device, task_handler)
-            utils.dump_predictions(args, result, "vqav2_test")
+            #########################################################################################
+            result, _ = evaluate(data_loader_test, model, device, task_handler, test_on_val1000=args.test_on_val1000)
+            if args.test_on_val1000:
+                utils.dump_predictions(args, result, "vqav2_val1000")
+            else:
+                utils.dump_predictions(args, result, "vqav2_test")
+            #########################################################################################
             exit(0)
         elif args.task in ["coco_captioning", "nocaps"]:
             predictions, _ = evaluate(data_loader_test, model, device, task_handler)

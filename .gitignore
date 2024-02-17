@@ -104,3 +104,12 @@ venv.bak/
 .mypy_cache/
 speechlm/dataset/LibriSpeech/fast_phone2unit/dict.PHN.txt
 speechlm/dataset/LibriSpeech/fast_phone2unit/dict.phn.txt
+
+# beit3
+beit3/beit3.spm
+beit3/beit3_large_patch16_480_vqa.pth
+beit3/*.pth
+beit3/outputs/
+beit3/myenv/
+beit3/__pycache__/
+

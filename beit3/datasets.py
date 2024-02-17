@@ -378,7 +378,7 @@ class VQAv2Dataset(BaseDataset):
         elif split == "test":
             return ("vqa.test.jsonl", )
         elif split == "test-dev":
-            return ("vqa.test-dev.jsonl", )            
+            return ("vqa.test-dev.jsonl", )
         else:
             raise RuntimeError("split %s is not found!" % split)
 
@@ -838,7 +838,14 @@ def create_dataset_by_split(args, split, is_train=True):
     )
 
 
-def create_downstream_dataset(args, is_eval=False):
+def create_downstream_dataset(args, is_eval=False, test_on_val1000=False):
+    ######################################################################
+    if test_on_val1000:
+        return \
+            create_dataset_by_split(args, split="train", is_train=True), \
+            create_dataset_by_split(args, split="val", is_train=False)
+    ######################################################################
+
     if is_eval:
         return create_dataset_by_split(args, split="test", is_train=False)
     else:

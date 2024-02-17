@@ -214,12 +214,14 @@ class VQAHandler(TaskHandler):
         self.metric_logger = metric_logger
         self.label2ans = data_loader.dataset.label2ans
 
-    def eval_batch(self, model, image, language_tokens, padding_mask, labels=None, qid=None):
+    ################################################################################################################
+    def eval_batch(self, model, image, language_tokens, padding_mask, labels=None, qid=None, test_on_val1000=False):
         logits = model(
             image=image, question=language_tokens, 
             padding_mask=padding_mask)
         batch_size = language_tokens.shape[0]
-        if labels is not None:
+
+        if labels is not None and not test_on_val1000:
             scores = utils.VQAScore()(logits, labels) * 100.0
             self.metric_logger.meters['score'].update(scores.item(), n=batch_size)
         else:
@@ -229,6 +231,7 @@ class VQAHandler(TaskHandler):
                     "question_id": image_id.item(), 
                     "answer": self.label2ans[pred.item()], 
                 })
+    ################################################################################################################
 
     def after_eval(self, **kwargs):
         if len(self.predictions) == 0:
@@ -577,7 +580,7 @@ def train_one_epoch(
 
 
 @torch.no_grad()
-def evaluate(data_loader, model, device, handler):
+def evaluate(data_loader, model, device, handler, test_on_val1000=False):
     metric_logger = utils.MetricLogger(delimiter="  ")
     header = 'Test:'
 
@@ -585,12 +588,17 @@ def evaluate(data_loader, model, device, handler):
     model.eval()
     handler.before_eval(metric_logger=metric_logger, data_loader=data_loader)
 
-    for data in metric_logger.log_every(data_loader, 10, header):
+    for idx, data in enumerate(metric_logger.log_every(data_loader, 10, header)):
         for tensor_key in data.keys():
             data[tensor_key] = data[tensor_key].to(device, non_blocking=True)
 
         with torch.cuda.amp.autocast():
-            handler.eval_batch(model=model, **data)
+            ############################################################
+            handler.eval_batch(model=model, test_on_val1000=test_on_val1000, **data)
+            ############################################################
+
+        if idx > 10:
+            break
 
     # gather the stats from all processes
     metric_logger.synchronize_between_processes()
