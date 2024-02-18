@@ -250,13 +250,13 @@ def main(args, ds_init):
 
     ############################################
     # Only run the following code block once to create the dataset index
-    # tokenizer = XLMRobertaTokenizer('beit3.spm')
-    #
-    # VQAv2Dataset.make_dataset_index(
-    #     data_path=args.data_path,
-    #     tokenizer=tokenizer,
-    #     annotation_data_path=args.data_path + '/vqa',
-    # )
+    tokenizer = XLMRobertaTokenizer('beit3.spm')
+
+    VQAv2Dataset.make_dataset_index(
+        data_path=args.data_path,
+        tokenizer=tokenizer,
+        annotation_data_path=args.data_path + '/vqa',
+    )
     ############################################
 
     data_loader_train, data_loader_val = create_downstream_dataset(args)

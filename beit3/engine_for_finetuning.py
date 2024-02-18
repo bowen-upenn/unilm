@@ -221,24 +221,39 @@ class VQAHandler(TaskHandler):
             padding_mask=padding_mask)
         batch_size = language_tokens.shape[0]
 
-        if labels is not None and not test_on_val1000:
+        if test_on_val1000:
             scores = utils.VQAScore()(logits, labels) * 100.0
             self.metric_logger.meters['score'].update(scores.item(), n=batch_size)
-        else:
             _, preds = logits.max(-1)
             for image_id, pred in zip(qid, preds):
                 self.predictions.append({
-                    "question_id": image_id.item(), 
-                    "answer": self.label2ans[pred.item()], 
+                    "question_id": image_id.item(),
+                    "answer": self.label2ans[pred.item()],
                 })
-    ################################################################################################################
-
-    def after_eval(self, **kwargs):
-        if len(self.predictions) == 0:
-            print('* Score {score.global_avg:.3f}'.format(score=self.metric_logger.score))
-            return {k: meter.global_avg for k, meter in self.metric_logger.meters.items()}, "score"
         else:
+            if labels is not None:
+                scores = utils.VQAScore()(logits, labels) * 100.0
+                self.metric_logger.meters['score'].update(scores.item(), n=batch_size)
+            else:
+                _, preds = logits.max(-1)
+                for image_id, pred in zip(qid, preds):
+                    self.predictions.append({
+                        "question_id": image_id.item(),
+                        "answer": self.label2ans[pred.item()],
+                    })
+
+    def after_eval(self, test_on_val1000=False, **kwargs):
+        if test_on_val1000:
+            print('* Score {score.global_avg:.3f}'.format(score=self.metric_logger.score))
+            print({k: meter.global_avg for k, meter in self.metric_logger.meters.items()})
             return self.predictions, "prediction"
+        else:
+            if len(self.predictions) == 0:
+                print('* Score {score.global_avg:.3f}'.format(score=self.metric_logger.score))
+                return {k: meter.global_avg for k, meter in self.metric_logger.meters.items()}, "score"
+            else:
+                return self.predictions, "prediction"
+    ################################################################################################################
 
 
 class CaptioningHandler(TaskHandler):
@@ -596,9 +611,6 @@ def evaluate(data_loader, model, device, handler, test_on_val1000=False):
             ############################################################
             handler.eval_batch(model=model, test_on_val1000=test_on_val1000, **data)
             ############################################################
-
-        if idx > 10:
-            break
 
     # gather the stats from all processes
     metric_logger.synchronize_between_processes()

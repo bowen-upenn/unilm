@@ -841,7 +841,6 @@ def dump_predictions(args, result, file_suffix):
         output_file = os.path.join(args.task_cache_path, f"submit_{global_rank}_{file_suffix}.json")
         with open(output_file, "w") as fp:
             json.dump(result, fp, indent=2)
-        print('result', result)
         torch.distributed.barrier()
 
         if global_rank == 0:
@@ -849,7 +848,6 @@ def dump_predictions(args, result, file_suffix):
             jsons = []
             for i in range(world_size):
                 each_file = os.path.join(args.task_cache_path, f"submit_{i}_{file_suffix}.json")
-                print('each_file', each_file)
                 with open(each_file, "r") as fp:
                     jsons += json.load(fp)
             
@@ -861,7 +859,6 @@ def dump_predictions(args, result, file_suffix):
                 # for VQAv2
                 qid_key = "question_id"
             for item in jsons:
-                print('item', item, 'qid_key', qid_key)
                 if item[qid_key] in res_dict:
                     continue
                 new_jsons.append(item)

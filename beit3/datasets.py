@@ -27,6 +27,10 @@ class BaseDataset(torch.utils.data.Dataset):
         self, data_path, split, transform, 
         tokenizer, num_max_bpe_tokens, task=None, test_on_val1000=False
     ):
+        ###########################
+        if test_on_val1000:
+            task = "test_on_val1000"
+        ###########################
         index_files = self.get_index_files(split, task=task)
         self.tokenizer = tokenizer
         self.num_max_bpe_tokens = num_max_bpe_tokens
@@ -378,10 +382,12 @@ class VQAv2Dataset(BaseDataset):
         elif split == "val":
             return ("vqa.rest_val.jsonl", )
         elif split == "test":
-            if self.test_on_val1000:
-                return ("vqa.rest_val.jsonl",)
+            ######################################
+            if task == "test_on_val1000":
+                return ("vqa.val1000.jsonl",)
             else:
                 return ("vqa.test.jsonl", )
+            ######################################
         elif split == "test-dev":
             return ("vqa.test-dev.jsonl", )
         else:
@@ -550,18 +556,25 @@ class VQAv2Dataset(BaseDataset):
         
         print("Contains %d image and %d pairs for val set!" % (len(val_image2items), len(split2items["val"])))
 
+        ############################################################################
         val_images = list(val_image2items.keys())
         random.shuffle(val_images)
         trainable_val = []
         rest_val = []
+        val1000 = []
         for i, image_id in enumerate(val_images):
-            if i < 1000:
+            if i < 1000:    # 1000 images
                 rest_val += val_image2items[image_id]
             else:
                 trainable_val += val_image2items[image_id]
+
+            if len(val1000) < 1000:    # 1000 questions
+                val1000.append(val_image2items[image_id][0])    # ensure each question come from different images
         
         _write_data_into_jsonl(items=trainable_val, jsonl_file=os.path.join(data_path, "vqa.trainable_val.jsonl"))
         _write_data_into_jsonl(items=rest_val, jsonl_file=os.path.join(data_path, "vqa.rest_val.jsonl"))
+        _write_data_into_jsonl(items=val1000, jsonl_file=os.path.join(data_path, "vqa.val1000.jsonl"))
+        ############################################################################
 
         with open(os.path.join(data_path, "answer2label.txt"), mode="w", encoding="utf-8") as writer:
             for ans in ans2label:
