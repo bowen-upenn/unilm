@@ -380,11 +380,12 @@ class VQAv2Dataset(BaseDataset):
         if split == "train":
             return ("vqa.train.jsonl", "vqa.trainable_val.jsonl")
         elif split == "val":
-            return ("vqa.rest_val.jsonl", )
+            return ("vqa.rest_val.jsonl", ) # 5228 pairs
         elif split == "test":
             ######################################
             if task == "test_on_val1000":
-                return ("vqa.val1000.jsonl",)
+                return ("vqa.rest_val.jsonl",)
+                # return ("vqa.val1000.jsonl",) # 1000 pairs
             else:
                 return ("vqa.test.jsonl", )
             ######################################
