@@ -42,7 +42,8 @@ def get_args():
                         choices=['nlvr2', 'vqav2', 'flickr30k', 'coco_retrieval', 'coco_captioning', 'nocaps', 'imagenet'], 
                         help='Name of task to fine-tuning')
 
-    parser.add_argument('--test_on_val1000', action='store_true', default=False, help='Test on val1000 dataset')
+    parser.add_argument('--test_on_vqav2_rest_val', action='store_true', default=False, help='Test on vqa2 rest-val dataset')
+    parser.add_argument('--test_on_gqa_val1000', action='store_true', default=False, help='Test on gqa val1000 dataset')
 
     parser.add_argument('--input_size', default=224, type=int,
                         help='images input size')
@@ -250,13 +251,17 @@ def main(args, ds_init):
 
     ############################################
     # Only run the following code block once to create the dataset index
-    tokenizer = XLMRobertaTokenizer('beit3.spm')
-
-    VQAv2Dataset.make_dataset_index(
-        data_path=args.data_path,
-        tokenizer=tokenizer,
-        annotation_data_path=args.data_path + '/vqa',
-    )
+    # tokenizer = XLMRobertaTokenizer('beit3.spm')
+    # VQAv2Dataset.make_dataset_index(
+    #     data_path=args.data_path,
+    #     tokenizer=tokenizer,
+    #     annotation_data_path=args.data_path + '/vqa',
+    # )
+    # VQAv2Dataset.make_dataset_index_gqa(
+    #     data_path=args.data_path,
+    #     tokenizer=tokenizer,
+    #     annotation_data_path=args.data_path,
+    # )
     ############################################
 
     data_loader_train, data_loader_val = create_downstream_dataset(args)
@@ -272,6 +277,7 @@ def main(args, ds_init):
             model_config = "%s_%s" % (args.model, args.task)
     else:
         model_config = args.model
+
     print("model_config = %s" % model_config)
     model = create_model(
         model_config,
@@ -381,9 +387,11 @@ def main(args, ds_init):
             exit(0)
         elif args.task == "vqav2":
             #########################################################################################
-            result, _ = evaluate(data_loader_test, model, device, task_handler, test_on_val1000=args.test_on_val1000)
-            if args.test_on_val1000:
-                utils.dump_predictions(args, result, "vqav2_val1000")
+            result, _ = evaluate(data_loader_test, model, device, task_handler, test_on_vqav2_rest_val=args.test_on_vqav2_rest_val, test_on_gqa_val1000=args.test_on_gqa_val1000)
+            if args.test_on_vqav2_rest_val:
+                utils.dump_predictions(args, result, "vqav2_rest_val")
+            elif args.test_on_gqa_val1000:
+                utils.dump_predictions(args, result, "gqa_val1000")
             else:
                 utils.dump_predictions(args, result, "vqav2_test")
             #########################################################################################

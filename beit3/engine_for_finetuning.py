@@ -215,13 +215,13 @@ class VQAHandler(TaskHandler):
         self.label2ans = data_loader.dataset.label2ans
 
     ################################################################################################################
-    def eval_batch(self, model, image, language_tokens, padding_mask, labels=None, qid=None, test_on_val1000=False):
+    def eval_batch(self, model, image, language_tokens, padding_mask, labels=None, qid=None, test_on_vqav2_rest_val=False, test_on_gqa_val1000=False):
         logits = model(
             image=image, question=language_tokens, 
             padding_mask=padding_mask)
         batch_size = language_tokens.shape[0]
 
-        if test_on_val1000:
+        if test_on_vqav2_rest_val or test_on_gqa_val1000:
             scores = utils.VQAScore()(logits, labels) * 100.0
             self.metric_logger.meters['score'].update(scores.item(), n=batch_size)
             _, preds = logits.max(-1)
@@ -242,8 +242,8 @@ class VQAHandler(TaskHandler):
                         "answer": self.label2ans[pred.item()],
                     })
 
-    def after_eval(self, test_on_val1000=False, **kwargs):
-        if test_on_val1000:
+    def after_eval(self, test_on_vqav2_rest_val=False, test_on_gqa_val1000=False, **kwargs):
+        if test_on_vqav2_rest_val or test_on_gqa_val1000:
             print('* Score {score.global_avg:.3f}'.format(score=self.metric_logger.score))
             print({k: meter.global_avg for k, meter in self.metric_logger.meters.items()})
             return self.predictions, "prediction"
@@ -595,7 +595,7 @@ def train_one_epoch(
 
 
 @torch.no_grad()
-def evaluate(data_loader, model, device, handler, test_on_val1000=False):
+def evaluate(data_loader, model, device, handler, test_on_vqav2_rest_val=False, test_on_gqa_val1000=False):
     metric_logger = utils.MetricLogger(delimiter="  ")
     header = 'Test:'
 
@@ -609,7 +609,7 @@ def evaluate(data_loader, model, device, handler, test_on_val1000=False):
 
         with torch.cuda.amp.autocast():
             ############################################################
-            handler.eval_batch(model=model, test_on_val1000=test_on_val1000, **data)
+            handler.eval_batch(model=model, test_on_vqav2_rest_val=test_on_vqav2_rest_val, test_on_gqa_val1000=test_on_gqa_val1000, **data)
             ############################################################
 
     # gather the stats from all processes

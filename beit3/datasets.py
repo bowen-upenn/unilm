@@ -25,11 +25,13 @@ from randaug import RandomAugment
 class BaseDataset(torch.utils.data.Dataset):
     def __init__(
         self, data_path, split, transform, 
-        tokenizer, num_max_bpe_tokens, task=None, test_on_val1000=False
+        tokenizer, num_max_bpe_tokens, task=None, test_on_vqav2_rest_val=False, test_on_gqa_val1000=False
     ):
         ###########################
-        if test_on_val1000:
-            task = "test_on_val1000"
+        if test_on_vqav2_rest_val:
+            task = "test_on_vqav2_rest_val"
+        if test_on_gqa_val1000:
+            task = "test_on_gqa_val1000"
         ###########################
         index_files = self.get_index_files(split, task=task)
         self.tokenizer = tokenizer
@@ -373,7 +375,8 @@ class VQAv2Dataset(BaseDataset):
         self.ans2label = ans2label
         self.label2ans = label2ans
 
-        self.test_on_val1000 = kwargs.get("test_on_val1000", False)
+        self.test_on_vqav2_rest_val = kwargs.get("test_on_vqav2_rest_val", False)
+        self.test_on_gqa_val1000 = kwargs.get("test_on_gqa_val1000", False)
 
     @staticmethod
     def get_index_files(split, task=None):
@@ -383,9 +386,12 @@ class VQAv2Dataset(BaseDataset):
             return ("vqa.rest_val.jsonl", ) # 5228 pairs
         elif split == "test":
             ######################################
-            if task == "test_on_val1000":
+            if task == "test_on_vqav2_rest_val":
+                print('loading vqa.rest_val.jsonl')
                 return ("vqa.rest_val.jsonl",)
-                # return ("vqa.val1000.jsonl",) # 1000 pairs
+            elif task == "test_on_gqa_val1000":
+                print('loading gqa.val1000.jsonl')
+                return ("gqa.val1000.jsonl",)
             else:
                 return ("vqa.test.jsonl", )
             ######################################
@@ -581,6 +587,103 @@ class VQAv2Dataset(BaseDataset):
             for ans in ans2label:
                 to_json = {
                     "answer": ans, 
+                    "label": ans2label[ans]
+                }
+                writer.write("%s\n" % json.dumps(to_json))
+
+
+    @classmethod
+    def make_dataset_index_gqa(cls, data_path, tokenizer, annotation_data_path):
+        with open(os.path.join(annotation_data_path, "gqasubset1000.json"), "r") as fp:
+            questions_val1000 = json.load(fp)
+
+        annotations = dict()
+        all_major_answers = list()
+
+        for split, questions in zip(
+                ["val1000"],
+                [questions_val1000],
+        ):
+            _annot = defaultdict(dict)
+            for q in questions:
+                question_text = q["question"]
+                tokens = tokenizer.tokenize(question_text)
+                token_ids = tokenizer.convert_tokens_to_ids(tokens)
+
+                image_id = q["image"][:-4]
+                assert q["question_id"] not in _annot[image_id]
+                _annot[image_id][q["question_id"]] = {
+                    "question": question_text,
+                    "token_ids": token_ids,
+                }
+
+                all_major_answers.append(q["answer"])
+
+            annotations[split] = _annot
+
+        all_major_answers = [normalize_word(word) for word in all_major_answers]
+        counter = {k: v for k, v in Counter(all_major_answers).items() if v >= 9}
+        ans2label = {k: i for i, k in enumerate(counter.keys())}
+        label2ans = list(counter.keys())
+
+        for split, annots in zip(
+                ["val1000"], [questions_val1000],
+        ):
+            _annot = annotations[split]
+            for q in annots:
+                answers = [q["answer"]]  # only one answer in GQA dataset
+                answer_count = {}
+                for answer in answers:
+                    answer_ = answer
+                    answer_count[answer_] = answer_count.get(answer_, 0) + 1
+
+                labels = []
+                scores = []
+                for answer in answer_count:
+                    if answer not in ans2label:
+                        continue
+                    labels.append(ans2label[answer])
+                    score = cls.get_score(answer_count[answer])
+                    scores.append(score)
+
+                image_id = q["image"][:-4]
+                assert "labels" not in _annot[image_id][q["question_id"]]
+                assert "question" in _annot[image_id][q["question_id"]]
+                _annot[image_id][q["question_id"]]["labels"] = labels
+                _annot[image_id][q["question_id"]]["scores"] = scores
+
+        for split in ["val1000"]:
+            filtered_annot = dict()
+            for ik, iv in annotations[split].items():
+                new_q = dict()
+                for qk, qv in iv.items():
+                    if len(qv["labels"]) != 0:
+                        new_q[qk] = qv
+                if len(new_q) != 0:
+                    filtered_annot[ik] = new_q
+            annotations[split] = filtered_annot
+
+        items = []
+        for split in ["val1000"]:
+            for annot_ in annotations[split]:
+                for qid in annotations[split][annot_]:
+                    q = annotations[split][annot_][qid]
+                    image_path = data_path + '/images/' + annot_ + ".jpg"
+                    print('image_path', image_path)
+                    items.append({
+                        "image_path": image_path,
+                        "text_segment": q["token_ids"],
+                        "labels": q["labels"],
+                        "scores": q["scores"],
+                        "qid": qid,
+                    })
+
+        _write_data_into_jsonl(items=items, jsonl_file=os.path.join(data_path, "gqa.val1000.jsonl"))
+
+        with open(os.path.join(data_path, "answer2label.txt"), mode="w", encoding="utf-8") as writer:
+            for ans in ans2label:
+                to_json = {
+                    "answer": ans,
                     "label": ans2label[ans]
                 }
                 writer.write("%s\n" % json.dumps(to_json))
@@ -842,7 +945,8 @@ def create_dataset_by_split(args, split, is_train=True):
         opt_kwargs["mask_prob"] = args.captioning_mask_prob
     ########################################################
     if args.task in ["vqav2"]:
-        opt_kwargs["test_on_val1000"] = args.test_on_val1000
+        opt_kwargs["test_on_vqav2_rest_val"] = args.test_on_vqav2_rest_val
+        opt_kwargs["test_on_gqa_val1000"] = args.test_on_gqa_val1000
     ########################################################
 
     dataset = dataset_class(
