@@ -113,3 +113,9 @@ beit3/outputs/
 beit3/myenv/
 beit3/__pycache__/
 
+# vlmo
+vlmo/=*
+vlmo/*.pth
+vlmo/app
+vlmo/result
+
