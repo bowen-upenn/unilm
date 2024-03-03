@@ -38,6 +38,9 @@ class BaseDataModule(LightningDataModule):
         self.image_only = _config["image_only"]
         self.text_only = _config["text_only"]
 
+        self.test_on_vqav2_rest_val = _config["test_on_vqav2_rest_val"]
+        self.test_on_gqa_val1000 = _config["test_on_gqa_val1000"]
+
         self.train_transform_keys = (
             ["default_train"]
             if len(_config["train_transform_keys"]) == 0
@@ -137,7 +140,7 @@ class BaseDataModule(LightningDataModule):
         self.test_dataset = self.dataset_cls(
             self.data_dir,
             self.val_transform_keys,
-            split="test",
+            split="val" if self.test_on_vqav2_rest_val else ("val_gqa" if self.test_on_gqa_val1000 else "test"),
             image_size=self.image_size,
             max_text_len=self.max_text_len,
             draw_false_image=self.draw_false_image,

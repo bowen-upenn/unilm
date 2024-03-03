@@ -3,7 +3,7 @@ from .base_dataset import BaseDataset
 
 class VQAv2Dataset(BaseDataset):
     def __init__(self, *args, split="", **kwargs):
-        assert split in ["train", "val", "test"]
+        assert split in ["train", "val", "test", "val_gqa"]
         self.split = split
 
         if split == "train":
@@ -12,6 +12,8 @@ class VQAv2Dataset(BaseDataset):
             names = ["vqav2_rest_val"]
         elif split == "test":
             names = ["vqav2_test"]  # vqav2_test-dev for test-dev
+        elif split == "val_gqa":
+            names = ["gqa_val1000"]
 
         super().__init__(
             *args,

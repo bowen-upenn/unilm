@@ -81,6 +81,9 @@ def config():
     num_workers = 8
     precision = 16
 
+    test_on_vqav2_rest_val = False
+    test_on_gqa_val1000 = False
+
 
 # ----------------------- language pretraining config -----------------------
 
