@@ -138,10 +138,10 @@ def make_arrow(root, dataset_root):
     ]:
         annot = annotations[split]
         split_name = {
-            "train": "train2014",
-            "val": "val2014",
-            "test": "test2015",
-            "test-dev": "test2015",
+            "train": "../train2014",
+            "val": "../val2014",
+            "test": "../test2015",
+            "test-dev": "../test2015",
         }[split]
         paths = list(glob(f"{root}/{split_name}/*.jpg"))
         random.shuffle(paths)

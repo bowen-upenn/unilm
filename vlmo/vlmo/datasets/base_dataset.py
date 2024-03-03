@@ -48,7 +48,15 @@ class BaseDataset(torch.utils.data.Dataset):
                 if os.path.isfile(f"{data_dir}/{name}.arrow")
             ]
 
+            tables_names = [
+                f"{data_dir}/{name}.arrow"
+                for name in names
+                if os.path.isfile(f"{data_dir}/{name}.arrow")
+            ]
+            print("!!!!!!!!tables_names", tables_names)
+
             self.table_names = list()
+            print("!!!!!!!!names", names, "tables", tables)
             for i, name in enumerate(names):
                 self.table_names += [name] * len(tables[i])
 

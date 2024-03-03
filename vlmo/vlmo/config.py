@@ -1,6 +1,6 @@
 from sacred import Experiment
 
-ex = Experiment("VLMo")
+ex = Experiment("VLMo", save_git_info=False)
 
 
 def _loss_names(d):
