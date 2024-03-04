@@ -80,7 +80,7 @@ class BaseDataModule(LightningDataModule):
         self.train_dataset = self.dataset_cls(
             self.data_dir,
             self.train_transform_keys,
-            split="train",
+            split="val_gqa" if self.test_on_gqa_val1000 else "train",
             image_size=self.image_size,
             max_text_len=self.max_text_len,
             draw_false_image=self.draw_false_image,
@@ -92,7 +92,7 @@ class BaseDataModule(LightningDataModule):
         self.val_dataset = self.dataset_cls(
             self.data_dir,
             self.val_transform_keys,
-            split="val",
+            split="val_gqa" if self.test_on_gqa_val1000 else "val",
             image_size=self.image_size,
             max_text_len=self.max_text_len,
             draw_false_image=self.draw_false_image,

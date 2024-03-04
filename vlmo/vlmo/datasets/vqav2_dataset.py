@@ -39,6 +39,7 @@ class VQAv2Dataset(BaseDataset):
             labels = list()
             scores = list()
 
+        # print("answers", answers, "text", text, "qid", qid, "labels", labels)
         return {
             "image": image_tensor,
             "text": text,
@@ -47,3 +48,4 @@ class VQAv2Dataset(BaseDataset):
             "vqa_scores": scores,
             "qid": qid,
         }
+

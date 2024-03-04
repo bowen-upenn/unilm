@@ -222,9 +222,25 @@ class VLMo(pl.LightningModule):
                 rank_zero_info("Read state dict from ckpt. ")
                 state_dict = ckpt
 
-            missing_keys, unexpected_keys = self.load_state_dict(state_dict, strict=False)
+            if self.relative_position_bias_table.size() != state_dict["relative_position_bias_table"].size():
+                missing_keys, unexpected_keys = self.custom_load_model(state_dict)
+            else:
+                missing_keys, unexpected_keys = self.load_state_dict(state_dict, strict=False)
             rank_zero_info("missing_keys: {}".format(missing_keys))
             rank_zero_info("unexpected_keys: {}".format(unexpected_keys))
+
+    def custom_load_model(self, state_dict):
+        # Resize model's relative_position_bias_table to match the checkpoint
+        resized_bias = F.interpolate(
+            state_dict["relative_position_bias_table"].unsqueeze(0).unsqueeze(0),
+            size=self.relative_position_bias_table.size(),
+            mode='nearest'
+        ).squeeze(0).squeeze(0)
+        state_dict["relative_position_bias_table"] = resized_bias
+
+        # Load the state dict with strict=False to ignore non-matching keys
+        missing_keys, unexpected_keys = self.load_state_dict(state_dict, strict=False)
+        return missing_keys, unexpected_keys
 
     def load_pretrained_weight(self):
         if self.hparams.config["load_path"] != "" and not self.hparams.config["test_only"]:
